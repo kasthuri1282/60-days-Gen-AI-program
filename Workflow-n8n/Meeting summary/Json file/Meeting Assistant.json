@@ -1,0 +1,204 @@
+{
+  "name": "Meeting Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-summary",
+        "options": {
+          "rawBody": false,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "meeting",
+                "value": "Authorization: Bearer my-secret-key"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -464,
+        -96
+      ],
+      "id": "2fd90436-f6c0-4faa-821d-7dec2d642465",
+      "name": "Webhook",
+      "webhookId": "fae0c739-1a5a-4e07-96a3-669ae1d424e8"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyse the following meeting transcript and return structured output.\nTranscript:\n{{$json. body.transcript}}\n\nReturn in this JSON format:\n\n\n{\n  \"summary\": \"\",\n  \"decisions\": [],\n  \"action_items\": [\n    {\n      \"task\": \"\",\n      \"owner\": \"\",\n      \"deadline\": \"\"\n    }\n  ]\n}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are an AI meeting assistant.\n\nYour job is to analyze a meeting transcript and extract:\n\n1. Key Decisions\n2. Action Items\n3. Action Item Owner\n4. Deadlines (if mentioned)\n\nRules:\n- Be concise\n- Do not add information not present in transcript\n- If no deadline mentioned, write \"Not specified\"\n- Output strictly in JSON format"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -112,
+        -96
+      ],
+      "id": "c1f7aae4-75e6-4396-a279-77e8b9cc8633",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        64
+      ],
+      "id": "0d266a10-12d0-4dea-bfeb-671666863e91",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "hVFMwK4rExyfuoq1",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.output || {};\n\nlet text = \"*📌 Meeting Summary*\\n\\n\";\n\nif (data.state) {\n  text += \"*📝 Summary:*\\n\" + data.state + \"\\n\\n\";\n}\n\nif (data.cities) {\n  text += \"*🎯 Action Items:*\\n\";\n  data.cities.forEach(item => {\n    text += \"• \" + item + \"\\n\";\n  });\n}\n\nreturn [{ json: { slack_message: text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -96
+      ],
+      "id": "a0e2d2d8-3493-4d99-8ba5-f45660dd93c5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        112
+      ],
+      "id": "92deb338-e482-4ceb-b62c-dce5deab8242",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0AGU01DUAF",
+          "mode": "list",
+          "cachedResultName": "meeting-summary"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        352,
+        -96
+      ],
+      "id": "18f83712-98c2-43e1-8443-9b61cb39b745",
+      "name": "Send a message",
+      "webhookId": "8c326b66-6fb3-45e6-b326-feb65e0ed508",
+      "credentials": {
+        "slackApi": {
+          "id": "xndWJN437kcePzns",
+          "name": "Slack account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5414d505-723d-448b-bffe-c8569297e164",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "50560328c112303800857c06f5cb01cc0ce6bd8398d8cd99ea54dacc75b860c9"
+  },
+  "id": "3P57QySjLCrbcJmx",
+  "tags": []
+}
